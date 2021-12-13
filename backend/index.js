@@ -1,7 +1,8 @@
 const axios = require('axios')
 const cheerio = require('cheerio')
 const express = require("express")
-
+const rateLimit = require('axios-rate-limit')
+ 
 let newsArr = []
 async function getBusinessNews(){
     try{
@@ -89,24 +90,144 @@ async function getMarketNews(){
 
     }
 }
-const app = express()
-app.get('/api/news', async(req,res) => {
-    try{
-        newsArr = []
-        await getBusinessNews()
-        await getMarketNews()
-        const newsFeed = newsArr
-        return res.status(200).json({
-            data: newsFeed,
-        })
+let symbol = []
+let opdata = []
+async function getSymbol() {
+    try {
+        const data = await axios.get("https://fapi.coinglass.com/api/support/symbol");
+        // console.log(data.data.data)
+        data.data.data.forEach(element => {
+            // console.log(element)
+            symbol.push(element)
+        });
+        
     }catch(err){
-        return res.status(500).json({
-            err: err.toString()
-        })
+        console.error(err)
+    }
+}
+async function getOpenInterest() {
+    //   var interval = 350;
+    //     symbol.forEach(function (el, index) {
+    //      setTimeout(async function () {
+    //      const data = await axios.get(
+    //        `https://fapi.coinglass.com/api/openInterest/pc/info?symbol=${el}`
+    //      );
+    //       opdata.push(data.data.data[0].oIChangePercent);
+    //       console.log(data.data.data[0].symbol, " ", data.data.data[0].oIChangePercent);
+    //       // console.log(opdata)
+    //   }, index * interval);
+    //   });
+    //   console.log(opdata);
+         
+
+  for (var i = 0; i < symbol.length; i++) {
+    const data = await axios.get(
+      `https://fapi.coinglass.com/api/openInterest/pc/info?symbol=${symbol[i]}`
+    );
+      var dict = {};
+      dict.name = data.data.data[0].symbol
+      dict.value = data.data.data[0].oIChangePercent;
+      opdata.push(dict)
+    // opdata.push(data.data.data[0].oIChangePercent);
+    console.log( data.data.data[0].symbol," ",data.data.data[0].oIChangePercent
+    );
+  }
+    function compare(a, b) {
+    if (a.value > b.value) {
+        return -1;
+    }
+    if (a.value < b.value) {
+        return 1;
+    }
+    return 0;
     }
 
+    opdata.sort(compare);
+    for (var i = 0; i < 20 ; i++){
+        console.log(i+1+"."+opdata[i].name);
+    }
+    // console.log(opdata)
+  // const interval = 0.001;
+  // let i = 0;
+  // let promise = Promise.resolve();
+  // symbol.forEach((element) => {
+  // promise = promise.then(async() => {
+  //    const data = await axios.get(`https://fapi.coinglass.com/api/openInterest/pc/info?symbol=${element}`)
+  // //    console.log(data.data.data[0])
+  //     opdata.push(data.data.data[0].oIChangePercent);
+  //     console.log(data.data.data[0].symbol," " ,data.data.data[0].oIChangePercent);
+  //     // i++;
+  //     return new Promise((resolve) => {
+  //     setInterval(resolve, interval);
+  //   })
+  // })
 
-})
-app.listen(3000,() => {
-    console.log("Running on port 3000")
-})
+  // });
+  // console.log(opdata)
+}
+async function sortWithIndeces(toSort) {
+    for (var i = 0; i < toSort.length; i++) {
+    toSort[i] = [toSort[i], i];
+    }
+    toSort.sort(function (left, right) {
+    return left[0] < right[0] ? -1 : 1;
+    });
+    toSort.sortIndices = [];
+    for (var j = 0; j < toSort.length; j++) {
+    toSort.sortIndices.push(toSort[j][1]);
+    toSort[j] = toSort[j][0];
+    }
+    return toSort;
+}
+async function main(){
+    await getSymbol()
+    await getOpenInterest()
+    // console.log(symbol)
+    // var test = [10, 20, 15, 13,-2];
+    // await sortWithIndeces(test);
+    // // await console.log(opdata)
+    // console.log(test.sortIndices);
+    // let sorted = []
+    // sorted = test.sortIndices
+    // console.log(test.sort())
+    // for (var i = 0; i < test.length; i++){
+    //     console.log(test[sorted[i]])
+    // }
+}
+main()
+// const app = express()
+// // app.get('/api/news', async(req,res) => {
+// //     try{
+// //         // newsArr = []
+// //         // await getBusinessNews()
+// //         // await getMarketNews()
+// //         // const newsFeed = newsArr
+// //         // return res.status(200).json({
+// //         //     data: newsFeed,
+// //         // })
+// //     }catch(err){
+// //         return res.status(500).json({
+// //             err: err.toString()
+// //         })
+// //     }
+
+
+// // })
+// app.get("/api/symbol", async (req, res) => {
+//   try {
+//     // opdata = []
+//     await getSymbol()
+//     const opd = opdata
+//     return res.status(200).json({
+//         data: opd,
+//     })
+//     //   await getSymbol()
+//   } catch (err) {
+//     return res.status(500).json({
+//       err: err.toString(),
+//     });
+//   }
+// });
+// app.listen(3000,() => {
+//     console.log("Running on port 3000")
+// })
